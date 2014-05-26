@@ -1,0 +1,18 @@
+Multivariate feature selection with hybrid heuristic search approach (this is an adaption for an R package in development).
+Feature selection is driven by Hotelling-Lawley Trace statistic (parametric).
+
+Main usage is likely the hybridFeatureSelection function, which takes:
+- Data frame of predictors as x
+- Vector / column of class(es) as y
+- 'start' parameter is method to select first variable for the search (can be 'random' or 'Hotelling')
+- stopP parameter is number of features to select before ending search
+- stopT2 parameter specifies Hotelling-Lawley trace statistic to reach before ending search
+(meeting either stopP or stopT2 will end search)
+The function performs a heuristic search to find the best (local) optima until it hits one of the stop parameters. 
+
+There is also a modified bagging routine to obtain out of bag estimates for features including LDA classification accuracy for a 2 class scenario (perhaps additional class scenarios will be supported at some time).
+
+Code by Jyota Snyder (jyotas at my dot ccsu dot edu).
+Concepts, approach, hybrid feature selection, and modified bagging schema were adapted into R from Darius Dziuda's 2010 "Data Mining for Genomics & Proteomics" book.
+
+
