@@ -1,6 +1,6 @@
 require(psych)
 
-newMBS <- function(dataMatrix, classes, stopP = 5, stopT2 = 1000.0, reps = 1, initialSelection = "random", priors = NULL, proportionInBag = 0.632)
+newMBS <- function(dataMatrix, classes, stopP = 5, stopT2 = 1000.0, reps = 1, initialSelection = "random", priors = NULL, proportionInBag = 0.632, searchWithReplacement = TRUE)
 {
 	dataMatrix = as.matrix(dataMatrix)
 	classes = as.numeric(classes)
@@ -11,7 +11,7 @@ newMBS <- function(dataMatrix, classes, stopP = 5, stopT2 = 1000.0, reps = 1, in
 	if(length(priors) != length(unique(classes))){
 	  stop("Ensure length(priors) == length(unique(classes)).\n")
 	}
-	mbs <- .MBS(dataMatrix = dataMatrix, classes = classes, stopP = stopP, stopT2 = stopT2, reps = reps, initialSelection = "random", priors = priors, proportionInBag = 0.632)
+	mbs <- .MBS(dataMatrix = dataMatrix, classes = classes, stopP = stopP, stopT2 = stopT2, reps = reps, initialSelection = "random", priors = priors, proportionInBag = 0.632, searchWithReplacement = searchWithReplacement)
 	return(mbs)
 }
 
@@ -62,5 +62,25 @@ setMethod("mbsMvar", signature(object = "MBS", selectedCols = "numeric", selecte
     
 	return(list(HotellingLawleyTrace=T2))
 	  }
+})
+
+setMethod("mbsForwardSelection", signature(object = "MBS", pool = "numeric"),
+	  function(object, pool){
+})
+
+setMethod("mbsBackwardOptimize", signature(object = "MBS", pool = "numeric"),
+	  function(object, pool){
+})
+
+setMethod("mbsObtainBestInitial", signature(object = "MBS"),
+	  function(object){
+})
+
+setMethod("mbsHybridFeatureSelection", signature(object = "MBS"),
+	  function(object){
+})
+
+setMethod("mbsRun", signature(object = "MBS"),
+	  function(object){
 })
 

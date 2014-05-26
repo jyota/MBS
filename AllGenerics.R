@@ -4,3 +4,13 @@ setGeneric("getMBSMetricResults", function(object) standardGeneric("getMBSMetric
 
 setGeneric("mbsMvar", function(object, selectedCols, selectedRows) standardGeneric("mbsMvar"))
 
+setGeneric("mbsForwardSelection", function(object, pool) standardGeneric("mbsForwardSelection"))
+
+setGeneric("mbsBackwardOptimize", function(object, pool) standardGeneric("mbsBackwardOptimize"))
+
+setGeneric("mbsObtainBestInitial", function(object) standardGeneric("mbsObtainBestInitial"))
+
+setGeneric("mbsHybridFeatureSelection", function(object) standardGeneric("mbsHybridFeatureSelection"))
+
+setGeneric("mbsRun", function(object) standardGeneric("mbsRun"))
+
