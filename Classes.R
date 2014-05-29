@@ -12,6 +12,7 @@
 	avgAccuracy = "numeric",
 	avgT2 = "numeric",
 	iterationResults = "data.frame",
-	searchWithReplacement = "logical")
+	searchWithReplacement = "logical",
+	usedVars = "numeric")
 )
 
