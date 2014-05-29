@@ -10,8 +10,6 @@
 	proportionInBag = "numeric",
 	priors = "numeric",
 	avgAccuracy = "numeric",
-	avgSensitivity = "numeric",
-	avgSpecificity = "numeric",
 	avgT2 = "numeric",
 	iterationResults = "data.frame",
 	searchWithReplacement = "logical")
