@@ -1,21 +1,6 @@
 require(psych)
 require(MASS)
 
-newMBS <- function(dataMatrix, classes, stopP = 5, stopT2 = 1000.0, reps = 1, initialSelection = "random", priors = NULL, proportionInBag = 0.632, searchWithReplacement = TRUE, assessOutOfBag = TRUE)
-{
-	dataMatrix = as.matrix(dataMatrix)
-	classes = as.numeric(classes)
-	if(is.null(priors)) priors <- rep(1.0 / length(unique(classes)), length(unique(classes)))
-	if(length(classes) != nrow(dataMatrix)){
-	  stop("Ensure length(classes) == nrow(dataMatrix) -- you may need to transpose your predictor matrix.\n")
-	}
-	if(length(priors) != length(unique(classes))){
-	  stop("Ensure length(priors) == length(unique(classes)).\n")
-	}
-	mbs <- .MBS(dataMatrix = dataMatrix, classes = classes, stopP = stopP, stopT2 = stopT2, reps = reps, initialSelection = initialSelection, priors = priors, proportionInBag = proportionInBag, searchWithReplacement = searchWithReplacement, assessOutOfBag = assessOutOfBag)
-	return(mbs)
-}
-
 setMethod("getMBSIterationResults", signature(object = "MBS"),
 	  function(object){
 		object@iterationResults
@@ -220,6 +205,14 @@ setMethod("mbsRun", signature(object = "MBS"),
 	 			colnames(predictDf) <- colnames(object@dataMatrix)[tmpSelected]
 	         	}
 	         	q = data.frame(y = classFrame[classFrame$selected == FALSE, ]$class, predict = predict(tmpFit, predictDf)$class)
+			returnMatrix[j, ]$Index <- j
+			returnMatrix[j, ]$T2 <- mbsMvar(object, selectedCols = tmpSelected, selectedRows = classFrame[classFrame$selected == FALSE, ]$id_seq)$HotellingLawleyTrace
+			tmpC <- unique(object@classes)
+			for(v in 1:length(tmpC)){
+			      returnMatrix[j, 2 + v] <- nrow(q[q$y == tmpC[v] & q$predict == tmpC[v], ])
+			      returnMatrix[j, 2 + length(tmpC) + v] <- nrow(q[q$y == tmpC[v], ])
+	      		 }
+		         returnMatrix[j, (2 + length(tmpC)*2 + 1):ncol(returnMatrix)] <- colnames(object@dataMatrix)[tmpSelected]
 		    }else{
 		       #Not assessing out of bag importance, so just select variables and calculate T2 against whole data matrix.
 	               tmpSelected = mbsHybridFeatureSelection(object = object, selectedRows = seq_len(nrow(object@dataMatrix))) 
@@ -236,6 +229,7 @@ setMethod("mbsRun", signature(object = "MBS"),
 	   object@iterationResults <- returnMatrix
 	   object@avgT2 <- mean(returnMatrix$T2)
 	   if(object@assessOutOfBag == TRUE){
+		tmpC <- unique(object@classes)
 	   	accCalc <- rowSums(returnMatrix[, 3:(2+length(tmpC))]) / rowSums(returnMatrix[, (3+length(tmpC)):(((3+length(tmpC)) - 1)+length(tmpC))])
 	   	object@avgAccuracy <- mean(accCalc)
 	   }
@@ -244,5 +238,28 @@ setMethod("mbsRun", signature(object = "MBS"),
 		object@dataMatrix <- origDm
 	   }	   
 	   return(object)
+})
+
+setMethod("MBS", signature(dataMatrix = "matrix", classes = "numeric"), 
+   function(dataMatrix, classes, stopP = 5, stopT2 = 1000.0, reps = 1, initialSelection = "random", priors = NULL, proportionInBag = 0.632, searchWithReplacement = TRUE, assessOutOfBag = TRUE)
+	{
+	classes = as.numeric(classes)
+	if(is.null(priors)) priors <- rep(1.0 / length(unique(classes)), length(unique(classes)))
+	if(length(classes) != nrow(dataMatrix)){
+	  stop("Ensure length(classes) == nrow(dataMatrix) -- you may need to transpose your predictor matrix.\n")
+	}
+	if(length(priors) != length(unique(classes))){
+	  stop("Ensure length(priors) == length(unique(classes)).\n")
+	}
+	if(stopP > ncol(dataMatrix)){
+	  stop("stopP > ncol(dataMatrix)! Aborting.\n")
+	}
+	mbs <- .MBS(dataMatrix = dataMatrix, classes = classes, stopP = stopP, stopT2 = stopT2, reps = reps, initialSelection = initialSelection, priors = priors, proportionInBag = proportionInBag, searchWithReplacement = searchWithReplacement, assessOutOfBag = assessOutOfBag)
+	return(mbsRun(mbs))
+})
+
+setMethod("MBS", signature(dataMatrix = "data.frame", classes = "numeric"),
+	  function(dataMatrix, classes, ...){ 
+		  MBS(as.matrix(dataMatrix), classes = classes, ...) 
 })
 

@@ -14,3 +14,4 @@ setGeneric("mbsHybridFeatureSelection", function(object, selectedRows) standardG
 
 setGeneric("mbsRun", function(object) standardGeneric("mbsRun"))
 
+setGeneric("MBS", function(dataMatrix, classes, ...) standardGeneric("MBS"))
