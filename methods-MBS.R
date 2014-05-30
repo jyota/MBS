@@ -206,7 +206,7 @@ setMethod("mbsRun", signature(object = "MBS"),
 	         	}
 	         	q = data.frame(y = classFrame[classFrame$selected == FALSE, ]$class, predict = predict(tmpFit, predictDf)$class)
 			returnMatrix[j, ]$Index <- j
-			returnMatrix[j, ]$T2 <- mbsMvar(object, selectedCols = tmpSelected, selectedRows = classFrame[classFrame$selected == FALSE, ]$id_seq)$HotellingLawleyTrace
+			returnMatrix[j, ]$T2 <- mbsMvar(object, selectedCols = tmpSelected, selectedRows = classFrame[classFrame$selected == TRUE, ]$id_seq)$HotellingLawleyTrace
 			tmpC <- unique(object@classes)
 			for(v in 1:length(tmpC)){
 			      returnMatrix[j, 2 + v] <- nrow(q[q$y == tmpC[v] & q$predict == tmpC[v], ])
@@ -222,7 +222,7 @@ setMethod("mbsRun", signature(object = "MBS"),
 		    }
 		    object@usedVars <- unique(c(object@usedVars, tmpSelected))
 		    if(object@searchWithReplacement == FALSE & length(object@usedVars) > 0){
-	  		object@dataMatrix <- object@dataMatrix[, -object@usedVars]
+	  		object@dataMatrix <- data.matrix(object@dataMatrix[, -object@usedVars])
 	  	    }
 		    setTxtProgressBar(baggingProgressBar,j/object@reps)
 		}
@@ -241,9 +241,21 @@ setMethod("mbsRun", signature(object = "MBS"),
 })
 
 setMethod("MBS", signature(dataMatrix = "matrix", classes = "numeric"), 
-   function(dataMatrix, classes, stopP = 5, stopT2 = 1000.0, reps = 1, initialSelection = "random", priors = NULL, proportionInBag = 0.632, searchWithReplacement = TRUE, assessOutOfBag = TRUE)
+   function(dataMatrix, classes, stopP = NULL, stopT2 = NULL, reps = NULL, initialSelection = "random", priors = NULL, proportionInBag = 0.632, searchWithReplacement = TRUE, assessOutOfBag = TRUE)
 	{
 	classes = as.numeric(classes)
+	if(is.null(stopP)){
+	  warning("No stopP value assigned, setting to maximum number of data matrix columns minus 1.\n")
+	  stopP <- ncol(dataMatrix) - 1
+        }	  
+	if(is.null(stopT2)){
+	  warning("No stopT2 value assigned, setting to 1000.\n")
+	  stopT2 <- 1000.0	
+	}
+	if(is.null(reps)){
+	  warning("No number of reps assigned, setting to 1.\n")
+	  reps <- 1	
+	}	
 	if(is.null(priors)) priors <- rep(1.0 / length(unique(classes)), length(unique(classes)))
 	if(length(classes) != nrow(dataMatrix)){
 	  stop("Ensure length(classes) == nrow(dataMatrix) -- you may need to transpose your predictor matrix.\n")
@@ -254,12 +266,15 @@ setMethod("MBS", signature(dataMatrix = "matrix", classes = "numeric"),
 	if(stopP > ncol(dataMatrix)){
 	  stop("stopP > ncol(dataMatrix)! Aborting.\n")
 	}
+	if(searchWithReplacement == FALSE & stopP*reps > ncol(dataMatrix)){
+	  stop("Request to perform MBS iterations, excluding variables from previous runs made, but not enough variables to meet number of reps requested. Aborting.\n")
+	}
 	mbs <- .MBS(dataMatrix = dataMatrix, classes = classes, stopP = stopP, stopT2 = stopT2, reps = reps, initialSelection = initialSelection, priors = priors, proportionInBag = proportionInBag, searchWithReplacement = searchWithReplacement, assessOutOfBag = assessOutOfBag)
 	return(mbsRun(mbs))
 })
 
 setMethod("MBS", signature(dataMatrix = "data.frame", classes = "numeric"),
 	  function(dataMatrix, classes, ...){ 
-		  MBS(as.matrix(dataMatrix), classes = classes, ...) 
+		  MBS(dataMatrix = data.matrix(dataMatrix), classes = classes, ...) 
 })
 
