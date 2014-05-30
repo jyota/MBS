@@ -1,7 +1,7 @@
 require(psych)
 require(MASS)
 
-newMBS <- function(dataMatrix, classes, stopP = 5, stopT2 = 1000.0, reps = 1, initialSelection = "random", priors = NULL, proportionInBag = 0.632, searchWithReplacement = TRUE)
+newMBS <- function(dataMatrix, classes, stopP = 5, stopT2 = 1000.0, reps = 1, initialSelection = "random", priors = NULL, proportionInBag = 0.632, searchWithReplacement = TRUE, assessOutOfBag = TRUE)
 {
 	dataMatrix = as.matrix(dataMatrix)
 	classes = as.numeric(classes)
@@ -12,7 +12,7 @@ newMBS <- function(dataMatrix, classes, stopP = 5, stopT2 = 1000.0, reps = 1, in
 	if(length(priors) != length(unique(classes))){
 	  stop("Ensure length(priors) == length(unique(classes)).\n")
 	}
-	mbs <- .MBS(dataMatrix = dataMatrix, classes = classes, stopP = stopP, stopT2 = stopT2, reps = reps, initialSelection = initialSelection, priors = priors, proportionInBag = proportionInBag, searchWithReplacement = searchWithReplacement)
+	mbs <- .MBS(dataMatrix = dataMatrix, classes = classes, stopP = stopP, stopT2 = stopT2, reps = reps, initialSelection = initialSelection, priors = priors, proportionInBag = proportionInBag, searchWithReplacement = searchWithReplacement, assessOutOfBag = assessOutOfBag)
 	return(mbs)
 }
 
@@ -135,7 +135,7 @@ setMethod("mbsHybridFeatureSelection", signature(object = "MBS", selectedRows = 
      	  if(is.null(object@stopP) | is.null(object@stopT2)){
     		stop("Must enter both stop criterion.\n")
     	  }
-  	  pool = seq_len(NCOL(object@dataMatrix))
+	  pool = seq_len(NCOL(object@dataMatrix))
   	  currentSet = NULL
   	  poolSize   = length(pool)
   	  markerSize = 0
@@ -183,47 +183,66 @@ setMethod("mbsRun", signature(object = "MBS"),
 	  function(object){
 		# Implements modified bagging schema to obtain estimates related to feature selection
 		cat("Running modified bagging schema for ", object@reps, " iterations...\n")
-		returnMatrix = matrix(nrow=object@reps,ncol=(2 + length(unique(object@classes))*2+object@stopP))
-  		returnMatrix = as.data.frame(returnMatrix)
-		colnames(returnMatrix) <- c('Index', 'T2', paste('Correct class ', unique(object@classes), sep = ""), paste('N in class ', unique(object@classes), sep = ""), paste('V',seq_len(object@stopP),sep=""))  		  
+		if(object@assessOutOfBag == TRUE){
+	  		returnMatrix = matrix(nrow=object@reps,ncol=(2 + length(unique(object@classes))*2+object@stopP))
+  			returnMatrix = as.data.frame(returnMatrix)
+			colnames(returnMatrix) <- c('Index', 'T2', paste('Correct class ', unique(object@classes), sep = ""), paste('N in class ', unique(object@classes), sep = ""), paste('V',seq_len(object@stopP),sep=""))  		  
+		} else {
+	  		returnMatrix = matrix(nrow=object@reps,ncol=(2 + object@stopP))
+  			returnMatrix = as.data.frame(returnMatrix)
+			colnames(returnMatrix) <- c('Index', 'T2', paste('V',seq_len(object@stopP),sep=""))  		  
+		}
+		if(object@searchWithReplacement == FALSE){
+			origDm <- object@dataMatrix
+		}
+		
 		baggingProgressBar <- txtProgressBar(style=3)
   		 for(j in 1:object@reps){
-		    	  classFrame <- data.frame(id_seq = seq_len(length(object@classes)), class = object@classes)
-		          classFrame$selected <- FALSE
-	    	      for(z in unique(object@classes)){
-			  inBagZ <- sample(classFrame[classFrame$class == z, ]$id_seq, size = round(nrow(classFrame[classFrame$class == z, ])*object@proportionInBag, 0), replace = FALSE)
-		      	  classFrame[inBagZ, ]$selected <- TRUE
-		      }
-	          tmpSelected = mbsHybridFeatureSelection(object = object, selectedRows = classFrame[classFrame$selected == TRUE, ]$id_seq) 
-	          if(length(tmpSelected)>1){
-		      	fitDf <- data.frame(object@dataMatrix[classFrame[classFrame$selected == TRUE, ]$id_seq, tmpSelected],classes=classFrame[classFrame$selected == TRUE, ]$class, check.names = FALSE)
-	          } else {
-			fitDf <- data.frame(variable=object@dataMatrix[classFrame[classFrame$selected == TRUE, ]$id_seq, tmpSelected],classes = classFrame[classFrame$selected == TRUE, ]$class, check.names = FALSE)
-			colnames(fitDf) <- c(colnames(object@dataMatrix)[tmpSelected], 'classes')
-	          }
-	         tmpFit = lda(classes ~ ., data = fitDf, prior = object@priors)
-	         if(length(tmpSelected)>1){
-	 	      	predictDf <- data.frame(object@dataMatrix[classFrame[classFrame$selected == FALSE, ]$id_seq, tmpSelected],check.names=FALSE)
-	         } else {
-			predictDf <- data.frame(variable=object@dataMatrix[classFrame[classFrame$selected == FALSE, ]$id_seq, tmpSelected])
-	 		colnames(predictDf) <- colnames(object@dataMatrix)[tmpSelected]
-	         }
-	         q = data.frame(y = classFrame[classFrame$selected == FALSE, ]$class, predict = predict(tmpFit, predictDf)$class)
-	         returnMatrix[j, ]$Index <- j
-	         returnMatrix[j, ]$T2 <- mbsMvar(object, selectedCols = tmpSelected, selectedRows = classFrame[classFrame$selected == FALSE, ]$id_seq)$HotellingLawleyTrace
-	         tmpC <- unique(object@classes)
-	         for(v in 1:length(tmpC)){
-		      returnMatrix[j, 2 + v] <- nrow(q[q$y == tmpC[v] & q$predict == tmpC[v], ])
-		      returnMatrix[j, 2 + length(tmpC) + v] <- nrow(q[q$y == tmpC[v], ])
-      		 }
-	         returnMatrix[j, (2 + length(tmpC)*2 + 1):ncol(returnMatrix)] <- colnames(object@dataMatrix)[tmpSelected]
-	         setTxtProgressBar(baggingProgressBar,j/object@reps)
+		  if(object@assessOutOfBag == TRUE){	 
+			  classFrame <- data.frame(id_seq = seq_len(length(object@classes)), class = object@classes)
+			  classFrame$selected <- FALSE
+	    		  for(z in unique(object@classes)){
+		  		  inBagZ <- sample(classFrame[classFrame$class == z, ]$id_seq, size = round(nrow(classFrame[classFrame$class == z, ])*object@proportionInBag, 0), replace = FALSE)
+		      		  classFrame[inBagZ, ]$selected <- TRUE
+		 	 }
+	         	tmpSelected = mbsHybridFeatureSelection(object = object, selectedRows = classFrame[classFrame$selected == TRUE, ]$id_seq) 
+	          	if(length(tmpSelected)>1){
+		      		fitDf <- data.frame(object@dataMatrix[classFrame[classFrame$selected == TRUE, ]$id_seq, tmpSelected],classes=classFrame[classFrame$selected == TRUE, ]$class, check.names = FALSE)
+	          	} else {
+				fitDf <- data.frame(variable=object@dataMatrix[classFrame[classFrame$selected == TRUE, ]$id_seq, tmpSelected],classes = classFrame[classFrame$selected == TRUE, ]$class, check.names = FALSE)
+				colnames(fitDf) <- c(colnames(object@dataMatrix)[tmpSelected], 'classes')
+	          	}
+	       		tmpFit = lda(classes ~ ., data = fitDf, prior = object@priors)
+	      	        if(length(tmpSelected)>1){
+	 	     	 	predictDf <- data.frame(object@dataMatrix[classFrame[classFrame$selected == FALSE, ]$id_seq, tmpSelected],check.names=FALSE)
+	       		} else {
+				predictDf <- data.frame(variable=object@dataMatrix[classFrame[classFrame$selected == FALSE, ]$id_seq, tmpSelected])
+	 			colnames(predictDf) <- colnames(object@dataMatrix)[tmpSelected]
+	         	}
+	         	q = data.frame(y = classFrame[classFrame$selected == FALSE, ]$class, predict = predict(tmpFit, predictDf)$class)
+		    }else{
+		       #Not assessing out of bag importance, so just select variables and calculate T2 against whole data matrix.
+	               tmpSelected = mbsHybridFeatureSelection(object = object, selectedRows = seq_len(nrow(object@dataMatrix))) 
+    		       returnMatrix[j, ]$Index <- j
+	               returnMatrix[j, ]$T2 <- mbsMvar(object, selectedCols = tmpSelected, selectedRows = seq_len(nrow(object@dataMatrix)))$HotellingLawleyTrace
+	               returnMatrix[j, 3:ncol(returnMatrix)] <- colnames(object@dataMatrix)[tmpSelected]
+		    }
+		    object@usedVars <- unique(c(object@usedVars, tmpSelected))
+		    if(object@searchWithReplacement == FALSE & length(object@usedVars) > 0){
+	  		object@dataMatrix <- object@dataMatrix[, -object@usedVars]
+	  	    }
+		    setTxtProgressBar(baggingProgressBar,j/object@reps)
 		}
 	   object@iterationResults <- returnMatrix
 	   object@avgT2 <- mean(returnMatrix$T2)
-	   accCalc <- rowSums(returnMatrix[, 3:(2+length(tmpC))]) / rowSums(returnMatrix[, (3+length(tmpC)):(((3+length(tmpC)) - 1)+length(tmpC))])
-	   object@avgAccuracy <- mean(accCalc)
+	   if(object@assessOutOfBag == TRUE){
+	   	accCalc <- rowSums(returnMatrix[, 3:(2+length(tmpC))]) / rowSums(returnMatrix[, (3+length(tmpC)):(((3+length(tmpC)) - 1)+length(tmpC))])
+	   	object@avgAccuracy <- mean(accCalc)
+	   }
 	   cat("\n")
+	   if(object@searchWithReplacement == FALSE){
+		object@dataMatrix <- origDm
+	   }	   
 	   return(object)
 })
 
