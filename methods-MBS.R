@@ -13,33 +13,33 @@ setMethod("getMBSMetricResults", signature(object = "MBS"),
 	  }
 )
 
-setMethod("mbsMvar", signature(object = "MBS", selectedCols = "numeric", selectedRows = "numeric"),
-	function(object, selectedCols, selectedRows){	
+setMethod("mbsMvar", signature(dataMatrix = "matrix", classes = "numeric"),
+	function(dataMatrix, classes){	
 	# Implements multivariate regression -- produces test statistic that is also available with R's MANOVA, but we can calculate here for 1 explanatory variable unlike MANOVA.
-	Y_ = matrix(ncol = NCOL(as.matrix(object@classes[selectedRows])) + 1, nrow = NROW(as.matrix(object@classes[selectedRows])))
-	Y_[ ,2] = as.matrix(object@classes[selectedRows])
+	Y_ = matrix(ncol = NCOL(as.matrix(classes)) + 1, nrow = NROW(as.matrix(classes)))
+	Y_[ ,2] = as.matrix(classes)
 	Y_[ ,1] = 1
 	if(rcond(crossprod(Y_)) < .Machine$double.eps){
 	  return(list(HotellingLawleyTrace=0.0))
 	}else{
-	  BETA = solve(crossprod(Y_)) %*% t(Y_) %*% object@dataMatrix[selectedRows, selectedCols]
+	  BETA = solve(crossprod(Y_)) %*% t(Y_) %*% dataMatrix
 	}
 	
 	X_ = Y_ %*% BETA
-	ERROR_ = object@dataMatrix[selectedRows, selectedCols] - X_
+	ERROR_ = dataMatrix - X_
 
-	MEAN_X = matrix(ncol = NCOL(object@dataMatrix[selectedRows, selectedCols]), nrow = NROW(object@dataMatrix[selectedRows, selectedCols]))
-	if (NCOL(object@dataMatrix[selectedRows, selectedCols])==1){
-		MEAN_X[,1] = mean(object@dataMatrix[selectedRows, selectedCols])
+	MEAN_X = matrix(ncol = NCOL(dataMatrix), nrow = NROW(dataMatrix))
+	if (NCOL(dataMatrix)==1){
+		MEAN_X[,1] = mean(dataMatrix)
 	}else {
-	for(k in 1:NCOL(object@dataMatrix[selectedRows, selectedCols])){
-		MEAN_X[,k] = mean(object@dataMatrix[selectedRows, selectedCols][,k])
+	for(k in 1:NCOL(dataMatrix)){
+		MEAN_X[,k] = mean(dataMatrix[,k])
 	}
 	}
 
 	SSCP_regression = crossprod(X_) - crossprod(MEAN_X)
 	SSCP_residual   = crossprod(ERROR_)
-	SSCP_total      = crossprod(object@dataMatrix[selectedRows, selectedCols]) - crossprod(MEAN_X)
+	SSCP_total      = crossprod(dataMatrix) - crossprod(MEAN_X)
 
 	if(rcond(SSCP_residual) < .Machine$double.eps){
 	  return(list(HotellingLawleyTrace = 0.0))
@@ -99,7 +99,7 @@ setMethod("mbsObtainBestInitial", signature(object = "MBS", selectedRows = "nume
 	maxVar    = NULL
 	if(object@initialSelection == "Hotelling"){
 		for(i in NCOL(object@dataMatrix)){
-			currentTest = mbsMvar(object, selectedCols = i, selectedRows = selectedRows)
+			currentTest = mbsMvar(object@dataMatrix, selectedCols = i, selectedRows = selectedRows)
 			if(currentTest$HotellingLawleyTrace > maxGain){			
 				maxGain   = currentTest$HotellingLawleyTrace
 				maxVar    = i
@@ -109,7 +109,7 @@ setMethod("mbsObtainBestInitial", signature(object = "MBS", selectedRows = "nume
 	if(object@initialSelection == "random"){
 		# Just pick a random column (returns Hotelling-Lawley trace stat)
 		maxVar = sample(seq_len(NCOL(object@dataMatrix)),1)
-		currentTest = mbsMvar(object, selectedCols = maxVar, selectedRows = selectedRows)
+		currentTest = mbsMvar(object@dataMatrix, selectedCols = maxVar, selectedRows = selectedRows)
 	        maxGain = currentTest$HotellingLawleyTrace
 	}
 	return(list(maxVar = maxVar, maxGain = maxGain))

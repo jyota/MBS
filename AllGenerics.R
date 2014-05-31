@@ -2,7 +2,7 @@ setGeneric("getMBSIterationResults", function(object) standardGeneric("getMBSIte
 
 setGeneric("getMBSMetricResults", function(object) standardGeneric("getMBSMetricResults"))
 
-setGeneric("mbsMvar", function(object, selectedCols, selectedRows) standardGeneric("mbsMvar"))
+setGeneric("mbsMvar", function(dataMatrix, classes) standardGeneric("mbsMvar"))
 
 setGeneric("mbsForwardSelection", function(object, selectedCols, selectedRows) standardGeneric("mbsForwardSelection"))
 
