@@ -1,5 +1,6 @@
 require(psych)
 require(MASS)
+sourceCpp("mbsForwardBackward.cpp")
 
 setMethod("getMBSIterationResults", signature(object = "MBS"),
 	  function(object){
@@ -13,63 +14,6 @@ setMethod("getMBSMetricResults", signature(object = "MBS"),
 	  }
 )
 
-setMethod("mbsMvar", signature(dataMatrix = "matrix", classes = "numeric"),
-	function(dataMatrix, classes){	
-	# Implements multivariate regression -- produces test statistic that is also available with R's MANOVA, but we can calculate here for 1 explanatory variable unlike MANOVA.
-	Y_ = matrix(ncol = NCOL(as.matrix(classes)) + 1, nrow = NROW(as.matrix(classes)))
-	Y_[ ,2] = as.matrix(classes)
-	Y_[ ,1] = 1
-	if(rcond(crossprod(Y_)) < .Machine$double.eps){
-	  return(list(HotellingLawleyTrace=0.0))
-	}else{
-	  BETA = solve(crossprod(Y_)) %*% t(Y_) %*% dataMatrix
-	}
-	
-	X_ = Y_ %*% BETA
-	ERROR_ = dataMatrix - X_
-
-	MEAN_X = matrix(ncol = NCOL(dataMatrix), nrow = NROW(dataMatrix))
-	if (NCOL(dataMatrix)==1){
-		MEAN_X[,1] = mean(dataMatrix)
-	}else {
-	for(k in 1:NCOL(dataMatrix)){
-		MEAN_X[,k] = mean(dataMatrix[,k])
-	}
-	}
-
-	SSCP_regression = crossprod(X_) - crossprod(MEAN_X)
-	SSCP_residual   = crossprod(ERROR_)
-	SSCP_total      = crossprod(dataMatrix) - crossprod(MEAN_X)
-
-	if(rcond(SSCP_residual) < .Machine$double.eps){
-	  return(list(HotellingLawleyTrace = 0.0))
-	 }else{
-	T2 = tr(SSCP_regression %*% solve(SSCP_residual))
-    
-	return(list(HotellingLawleyTrace = T2))
-	  }
-})
-
-setMethod("mbsForwardSelection", signature(object = "MBS", selectedCols = "numeric", selectedRows = "numeric"),
-	  function(object, selectedCols, selectedRows){
-          # Forward selection maximizing Hotelling-Lawley trace
-          # selectedCols is currently selected variables. 
-	  # selectedRows is in-bag rows selected for modified bagging schema.
-	  maxGain = 0.0  
-	  currentT2 = mbsMvar(object, selectedCols, selectedRows)$HotellingLawleyTrace
- 	  pool = seq_len(NCOL(object@dataMatrix))
-	  pool = pool[-which(pool %in% selectedCols)]
-  	  for(i in seq_len(length(pool))){
-    	  deltaT2 = mbsMvar(object, c(selectedCols, pool[i]), selectedRows)$HotellingLawleyTrace - currentT2
-    
-    	  if(deltaT2 >= maxGain){
-      	    maxGain = deltaT2
-      	    selectedVar = pool[i]
-    	   }
-          }  
-    return(list(selectedVar = selectedVar, maxGain = maxGain))
-})
-
 setMethod("mbsBackwardOptimize", signature(object = "MBS", selectedCols = "numeric", selectedRows = "numeric"),
 	  function(object, selectedCols, selectedRows){
           # Backward optimization with Hotelling-Lawley trace
@@ -77,16 +21,16 @@ setMethod("mbsBackwardOptimize", signature(object = "MBS", selectedCols = "numer
 	  #  if minLoss is less than maxGain from last forwardSelection variable may be dropped) 
 	  dropVar = NULL
 	  if(length(selectedCols)>2){
-	      currentT2 = mbsMvar(object, selectedCols, selectedRows)$HotellingLawleyTrace      
+	      currentT2 = mbsMvarR(object@dataMatrix[selectedRows, selectedCols], object@classes[selectedRows])
 	      minLoss = currentT2
 	  for(i in seq_len(length(selectedCols))){
-	      deltaT2 = currentT2 - mbsMvar(object, selectedCols[-i], selectedRows)$HotellingLawleyTrace
+	      deltaT2 = currentT2 - mbsMvarR(object@dataMatrix[selectedRows, selectedCols[-i]], object@classes[selectedRows])
 	    if(deltaT2 <= minLoss){
 	      minLoss = deltaT2
 	      dropVar = selectedCols[i]
 	    }
-	  }  
-    	  return(list(dropVar = dropVar, minLoss = minLoss))
+	  } 
+	 return(list(dropVar = dropVar, minLoss = minLoss))
     	} else {
           return(list(dropVar = NULL, minLoss = NULL))
         }
@@ -99,9 +43,9 @@ setMethod("mbsObtainBestInitial", signature(object = "MBS", selectedRows = "nume
 	maxVar    = NULL
 	if(object@initialSelection == "Hotelling"){
 		for(i in NCOL(object@dataMatrix)){
-			currentTest = mbsMvar(object@dataMatrix, selectedCols = i, selectedRows = selectedRows)
-			if(currentTest$HotellingLawleyTrace > maxGain){			
-				maxGain   = currentTest$HotellingLawleyTrace
+			currentTest = mbsMvarR(as.matrix(object@dataMatrix[selectedRows, ]), object@classes[selectedRows])
+			if(currentTest > maxGain){			
+				maxGain   = currentTest
 				maxVar    = i
 			}
 		}
@@ -109,8 +53,7 @@ setMethod("mbsObtainBestInitial", signature(object = "MBS", selectedRows = "nume
 	if(object@initialSelection == "random"){
 		# Just pick a random column (returns Hotelling-Lawley trace stat)
 		maxVar = sample(seq_len(NCOL(object@dataMatrix)),1)
-		currentTest = mbsMvar(object@dataMatrix, selectedCols = maxVar, selectedRows = selectedRows)
-	        maxGain = currentTest$HotellingLawleyTrace
+		maxGain = mbsMvarR(as.matrix(object@dataMatrix[selectedRows, maxVar]), object@classes[selectedRows])
 	}
 	return(list(maxVar = maxVar, maxGain = maxGain))
 })
@@ -134,9 +77,11 @@ setMethod("mbsHybridFeatureSelection", signature(object = "MBS", selectedRows = 
       		selectedVar = init$maxVar
       		maxGainStep = init$maxGain
     	  } else {
-      		stepForward = mbsForwardSelection(object = object, selectedCols = currentSet, selectedRows = selectedRows)
-      		selectedVar = stepForward$selectedVar
-      		maxGainStep = stepForward$maxGain
+      		stepForward = mbsForwardSelection(object@dataMatrix, selectedCols = currentSet - 1, selectedRows = selectedRows - 1, classes = object@classes)
+		if(stepForward[1] != -1){
+       	        	selectedVar = stepForward[1] + 1
+      			maxGainStep = stepForward[2]
+		}
     	  }
     	  currentT2  = currentT2 + maxGainStep
 
@@ -161,6 +106,7 @@ setMethod("mbsHybridFeatureSelection", signature(object = "MBS", selectedRows = 
 	  }
 	  i = i + 1
   	}
+
 	return(currentSet)
 })
 
@@ -206,7 +152,7 @@ setMethod("mbsRun", signature(object = "MBS"),
 	         	}
 	         	q = data.frame(y = classFrame[classFrame$selected == FALSE, ]$class, predict = predict(tmpFit, predictDf)$class)
 			returnMatrix[j, ]$Index <- j
-			returnMatrix[j, ]$T2 <- mbsMvar(object, selectedCols = tmpSelected, selectedRows = classFrame[classFrame$selected == TRUE, ]$id_seq)$HotellingLawleyTrace
+			returnMatrix[j, ]$T2 <- mbsMvarR(object@dataMatrix[classFrame[classFrame$selected == TRUE, ]$id_seq, tmpSelected], object@classes[classFrame[classFrame$selected == TRUE, ]$id_seq])
 			tmpC <- unique(object@classes)
 			for(v in 1:length(tmpC)){
 			      returnMatrix[j, 2 + v] <- nrow(q[q$y == tmpC[v] & q$predict == tmpC[v], ])
@@ -217,7 +163,7 @@ setMethod("mbsRun", signature(object = "MBS"),
 		       #Not assessing out of bag importance, so just select variables and calculate T2 against whole data matrix.
 	               tmpSelected = mbsHybridFeatureSelection(object = object, selectedRows = seq_len(nrow(object@dataMatrix))) 
     		       returnMatrix[j, ]$Index <- j
-	               returnMatrix[j, ]$T2 <- mbsMvar(object, selectedCols = tmpSelected, selectedRows = seq_len(nrow(object@dataMatrix)))$HotellingLawleyTrace
+	               returnMatrix[j, ]$T2 <- mbsMvarR(object@dataMatrix[, tmpSelected], classes = classes)
 	               returnMatrix[j, 3:ncol(returnMatrix)] <- colnames(object@dataMatrix)[tmpSelected]
 		    }
 		    object@usedVars <- unique(c(object@usedVars, tmpSelected))
