@@ -102,15 +102,45 @@ NumericVector mbsForwardSelection(NumericMatrix x, NumericVector classes, Numeri
 }
 
 
-NumericVector mbsBackwardOptimize2(NumericMatrix x, NumericVector classes, NumericVector selectedCols, NumericVector selectedRows)
+// [[Rcpp::export]]
+NumericVector mbsBackwardOptimize(NumericMatrix x, NumericVector classes, NumericVector selectedCols, NumericVector selectedRows)
 {
 	int dropVar = -1;
 	double minLoss = 0.0;
+	double deltaT2 = 0.0;
+	int tmpInc = 0;
 	arma::mat X = as<arma::mat>(x);
 	arma::ivec Classes = as<arma::ivec>(classes);
 	arma::ivec SelectedCols = as<arma::ivec>(selectedCols);
 	arma::ivec SelectedRows = as<arma::ivec>(selectedRows);
-
-	double currentT2 = mbsMvar(X, Classes);
-	
+	if(SelectedCols.n_elem > 2){
+		double currentT2 = mbsMvar(X.submat(arma::conv_to< arma::uvec >::from(SelectedRows), arma::conv_to< arma::uvec >::from(SelectedCols)), Classes(arma::conv_to< arma::uvec >::from(SelectedRows)));
+		minLoss = currentT2;
+		for(int i = 0; i < SelectedCols.n_elem; i++){
+			arma::uvec reducedCols = arma::uvec(SelectedCols.n_elem - 1);	
+			tmpInc = 0;
+			for(int j = 0; j < SelectedCols.n_elem; j++){
+				if(i != j){
+					reducedCols(tmpInc) = SelectedCols(j);
+					tmpInc++;
+				}
+			}
+			deltaT2 = currentT2 - mbsMvar(X.submat(arma::conv_to< arma::uvec >::from(SelectedRows), reducedCols), Classes(arma::conv_to< arma::uvec >::from(SelectedRows)));
+			if(deltaT2 <= minLoss){
+				dropVar = SelectedCols(i);
+				minLoss = deltaT2;
+			}
+		}
+	}
+	if(dropVar != -1){
+		arma::vec retCols = arma::vec(2);
+		retCols(0) = dropVar;
+		retCols(1) = minLoss;
+		return(wrap(retCols));
+	} else { 		
+		arma::vec retCols = arma::vec(2);
+		retCols(0) = -1;
+		retCols(1) = -1;
+		return(wrap(retCols));
+	}
 }

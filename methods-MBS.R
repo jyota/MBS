@@ -1,5 +1,10 @@
 require(psych)
 require(MASS)
+require(parallel)
+library(Rcpp)
+library(RcppArmadillo)
+library(MASS)
+
 sourceCpp("mbsForwardBackward.cpp")
 
 setMethod("getMBSIterationResults", signature(object = "MBS"),
@@ -13,28 +18,6 @@ setMethod("getMBSMetricResults", signature(object = "MBS"),
 		  list(avgAccuracy = object@avgAccuracy, avgSensitivity = object@avgSensitivity, avgSpecificity = object@avgSpecificity, avgT2 = object@avgT2)
 	  }
 )
-
-setMethod("mbsBackwardOptimize", signature(object = "MBS", selectedCols = "numeric", selectedRows = "numeric"),
-	  function(object, selectedCols, selectedRows){
-          # Backward optimization with Hotelling-Lawley trace
-	  # (this function returns a possible variable to remove and minLoss value--
-	  #  if minLoss is less than maxGain from last forwardSelection variable may be dropped) 
-	  dropVar = NULL
-	  if(length(selectedCols)>2){
-	      currentT2 = mbsMvarR(object@dataMatrix[selectedRows, selectedCols], object@classes[selectedRows])
-	      minLoss = currentT2
-	  for(i in seq_len(length(selectedCols))){
-	      deltaT2 = currentT2 - mbsMvarR(object@dataMatrix[selectedRows, selectedCols[-i]], object@classes[selectedRows])
-	    if(deltaT2 <= minLoss){
-	      minLoss = deltaT2
-	      dropVar = selectedCols[i]
-	    }
-	  } 
-	 return(list(dropVar = dropVar, minLoss = minLoss))
-    	} else {
-          return(list(dropVar = NULL, minLoss = NULL))
-        }
-})
 
 setMethod("mbsObtainBestInitial", signature(object = "MBS", selectedRows = "numeric"),
 	function(object, selectedRows){
@@ -93,12 +76,15 @@ setMethod("mbsHybridFeatureSelection", signature(object = "MBS", selectedRows = 
 	  pool = pool[-which(pool %in% selectedVar)]
     	  poolSize = poolSize - 1
     	  if(markerSize > 2){
-      		stepBack = mbsBackwardOptimize(object = object, selectedCols = currentSet, selectedRows = selectedRows)
-	        minLossStep = stepBack$minLoss
-	       if(minLossStep < maxGainStep - 0.0001 && !is.null(stepBack$dropVar)){        
+      		stepBack = mbsBackwardOptimize(x = object@dataMatrix, classes = object@classes, selectedCols = currentSet - 1, selectedRows = selectedRows - 1)
+	  	if(stepBack[1] != -1){
+		        minLossStep = stepBack[2]
+			dropVar = stepBack[1] +	1
+		}
+	       if(minLossStep < maxGainStep - 0.0001 && dropVar > 0){        
 	       # adjustment above to maxGainStep is to avoid getting stuck on a variable with very slightly lowered minLossStep
-			pool = c(pool, stepBack$dropVar)
-			currentSet = currentSet[-which(currentSet %in% stepBack$dropVar)]
+			pool = c(pool, dropVar)
+			currentSet = currentSet[-which(currentSet %in% dropVar)]
 			poolSize = poolSize + 1
 			markerSize = markerSize - 1
 			currentT2 = currentT2 - minLossStep
@@ -110,10 +96,10 @@ setMethod("mbsHybridFeatureSelection", signature(object = "MBS", selectedRows = 
 	return(currentSet)
 })
 
-setMethod("mbsRun", signature(object = "MBS"),
-	  function(object){
+setMethod("mbsRun", signature(object = "MBS", showProgress = "logical"),
+	  function(object, showProgress){
 		# Implements modified bagging schema to obtain estimates related to feature selection
-		cat("Running modified bagging schema for ", object@reps, " iterations...\n")
+		if(showProgress == TRUE) cat("Running modified bagging schema for ", object@reps, " iterations...\n")
 		if(object@assessOutOfBag == TRUE){
 	  		returnMatrix = matrix(nrow=object@reps,ncol=(2 + length(unique(object@classes))*2+object@stopP))
   			returnMatrix = as.data.frame(returnMatrix)
@@ -126,8 +112,7 @@ setMethod("mbsRun", signature(object = "MBS"),
 		if(object@searchWithReplacement == FALSE){
 			origDm <- object@dataMatrix
 		}
-		
-		baggingProgressBar <- txtProgressBar(style=3)
+		if(showProgress == TRUE) baggingProgressBar <- txtProgressBar(style=3)
   		 for(j in 1:object@reps){
 		  if(object@assessOutOfBag == TRUE){	 
 			  classFrame <- data.frame(id_seq = seq_len(length(object@classes)), class = object@classes)
@@ -170,7 +155,7 @@ setMethod("mbsRun", signature(object = "MBS"),
 		    if(object@searchWithReplacement == FALSE & length(object@usedVars) > 0){
 	  		object@dataMatrix <- data.matrix(object@dataMatrix[, -object@usedVars])
 	  	    }
-		    setTxtProgressBar(baggingProgressBar,j/object@reps)
+		    if(showProgress == TRUE) setTxtProgressBar(baggingProgressBar,j/object@reps)
 		}
 	   object@iterationResults <- returnMatrix
 	   object@avgT2 <- mean(returnMatrix$T2)
@@ -179,7 +164,7 @@ setMethod("mbsRun", signature(object = "MBS"),
 	   	accCalc <- rowSums(returnMatrix[, 3:(2+length(tmpC))]) / rowSums(returnMatrix[, (3+length(tmpC)):(((3+length(tmpC)) - 1)+length(tmpC))])
 	   	object@avgAccuracy <- mean(accCalc)
 	   }
-	   cat("\n")
+	   if(showProgress == TRUE) cat("\n")
 	   if(object@searchWithReplacement == FALSE){
 		object@dataMatrix <- origDm
 	   }	   
@@ -187,7 +172,7 @@ setMethod("mbsRun", signature(object = "MBS"),
 })
 
 setMethod("MBS", signature(dataMatrix = "matrix", classes = "numeric"), 
-   function(dataMatrix, classes, stopP = NULL, stopT2 = NULL, reps = NULL, initialSelection = "random", priors = NULL, proportionInBag = 0.632, searchWithReplacement = TRUE, assessOutOfBag = TRUE)
+   function(dataMatrix, classes, stopP = NULL, stopT2 = NULL, reps = NULL, initialSelection = "random", priors = NULL, proportionInBag = 0.632, searchWithReplacement = TRUE, assessOutOfBag = TRUE, showProgress = TRUE)
 	{
 	classes = as.numeric(classes)
 	if(is.null(stopP)){
@@ -216,11 +201,52 @@ setMethod("MBS", signature(dataMatrix = "matrix", classes = "numeric"),
 	  stop("Request to perform MBS iterations, excluding variables from previous runs made, but not enough variables to meet number of reps requested. Aborting.\n")
 	}
 	mbs <- .MBS(dataMatrix = dataMatrix, classes = classes, stopP = stopP, stopT2 = stopT2, reps = reps, initialSelection = initialSelection, priors = priors, proportionInBag = proportionInBag, searchWithReplacement = searchWithReplacement, assessOutOfBag = assessOutOfBag)
-	return(mbsRun(mbs))
+	return(mbsRun(mbs, showProgress))
 })
 
 setMethod("MBS", signature(dataMatrix = "data.frame", classes = "numeric"),
 	  function(dataMatrix, classes, ...){ 
 		  MBS(dataMatrix = data.matrix(dataMatrix), classes = classes, ...) 
+})
+
+# Work in progress below for multicore bagging procedure (not yet functional)
+setMethod("MBSparallel", signature(dataMatrix = "matrix", classes = "numeric", cores = "numeric", reps = "numeric", showProgress = "logical", stopP = "numeric"),
+	  function(dataMatrix, classes, cores = detectCores(), reps = detectCores(), showProgress = FALSE, stopP, ...){
+		if(exists("reps") == FALSE) reps = cores
+	  	if((reps %% cores) > 0){
+			warning(paste("Number of reps / number of cores did not balance. Removing ", reps %% cores, " reps to balance.", sep = ""))
+		}
+		reps <- reps - (reps %% cores)
+		reps = round(reps / cores, 0)
+		showProgress = FALSE	
+		stopP = stopP
+		cl <- makeCluster(cores)
+		clusterEvalQ(cl, {
+				       library(MASS)
+				       library(Rcpp)
+				       library(RcppArmadillo)
+				       source("Classes.R")
+				       source("AllGenerics.R")
+				       source("methods-MBS.R")
+				       NULL })
+		clusterExport(cl, "dataMatrix", environment())
+		clusterExport(cl, "classes", environment())
+		clusterExport(cl, "reps", environment())
+		clusterExport(cl, "showProgress", environment())
+		clusterExport(cl, "stopP", environment())
+		mbsRes <- clusterEvalQ(cl, MBS(dataMatrix, classes, reps = reps, showProgress = showProgress, stopP = stopP))
+	  	stopCluster(cl)
+		returnable <- mbsRes[1]
+		for(i in 2:length(mbsRes)){
+			returnable$iterationResults <- rbind(returnable$iterationResults, mbsRes[i])
+		}
+		returnable$avgT2 <- mean(returnable$iterationResults$T2)
+	 	if(returnable$assessOutOfBag == TRUE){
+			tmpC <- unique(returnable@classes)
+	   		accCalc <- rowSums(returnable$iterationResults[, 3:(2+length(tmpC))]) / rowSums(returnable$iterationResults[, (3+length(tmpC)):(((3+length(tmpC)) - 1)+length(tmpC))])
+	   		returnable$avgAccuracy <- mean(accCalc)
+	   	}
+
+		return(returnable)
 })
 
