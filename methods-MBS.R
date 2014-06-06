@@ -210,43 +210,69 @@ setMethod("MBS", signature(dataMatrix = "data.frame", classes = "numeric"),
 })
 
 # Work in progress below for multicore bagging procedure (not yet functional)
-setMethod("MBSparallel", signature(dataMatrix = "matrix", classes = "numeric", cores = "numeric", reps = "numeric", showProgress = "logical", stopP = "numeric"),
-	  function(dataMatrix, classes, cores = detectCores(), reps = detectCores(), showProgress = FALSE, stopP, ...){
-		if(exists("reps") == FALSE) reps = cores
-	  	if((reps %% cores) > 0){
-			warning(paste("Number of reps / number of cores did not balance. Removing ", reps %% cores, " reps to balance.", sep = ""))
+setMethod("MBSparallel", signature(dataMatrix = "matrix", classes = "numeric", cores = "numeric"),
+	  function(dataMatrix, classes, cores = detectCores(), stopP = NULL, stopT2 = NULL, reps = NULL, initialSelection = "random", priors = NULL, proportionInBag = 0.632, searchWithReplacement = TRUE, assessOutOfBag = TRUE, showProgress = TRUE){
+		if(searchWithReplacement == FALSE){
+			stop("searchWithReplace set to False is intended for a sequential search-- use MBS instead of MBSparallel.\n")
+		}
+  		classes = as.numeric(classes)
+		if(is.null(stopP)){
+		  warning("No stopP value assigned, setting to maximum number of data matrix columns minus 1.\n")
+		  stopP <- ncol(dataMatrix) - 1
+		}	  
+		if(is.null(stopT2)){
+		  warning("No stopT2 value assigned, setting to 1000.\n")
+		  stopT2 <- 1000.0	
+		}
+		if(is.null(reps)){
+		  warning("No number of reps assigned, setting to core.\n")
+		  reps <- cores
+		}	
+		if(is.null(priors)) priors <- rep(1.0 / length(unique(classes)), length(unique(classes)))
+		if(length(classes) != nrow(dataMatrix)){
+		  stop("Ensure length(classes) == nrow(dataMatrix) -- you may need to transpose your predictor matrix.\n")
+		}
+		if(length(priors) != length(unique(classes))){
+		  stop("Ensure length(priors) == length(unique(classes)).\n")
+		}
+		if(stopP > ncol(dataMatrix)){
+		  stop("stopP > ncol(dataMatrix)! Aborting.\n")
+		}
+		if((reps %% cores) > 0){
+		  warning(paste("Number of reps / number of cores did not balance. Removing ", reps %% cores, " reps to balance.", sep = ""))
 		}
 		reps <- reps - (reps %% cores)
 		reps = round(reps / cores, 0)
-		showProgress = FALSE	
-		stopP = stopP
+
+		if(searchWithReplacement == FALSE & stopP*reps > ncol(dataMatrix)){
+		  stop("Request to perform MBS iterations, excluding variables from previous runs made, but not enough variables to meet number of reps requested. Aborting.\n")
+		}
+		if(showProgress == TRUE) cat(paste("Beginning ", reps, " iterations on each of ", cores, " cores (", reps*cores, " total)\n", sep = ""))
+		mbs <- .MBS(dataMatrix = dataMatrix, classes = classes, stopP = stopP, stopT2 = stopT2, reps = reps, initialSelection = initialSelection, priors = priors, proportionInBag = proportionInBag, searchWithReplacement = searchWithReplacement, assessOutOfBag = assessOutOfBag)
 		cl <- makeCluster(cores)
 		clusterEvalQ(cl, {
-				       library(MASS)
-				       library(Rcpp)
-				       library(RcppArmadillo)
-				       source("Classes.R")
-				       source("AllGenerics.R")
-				       source("methods-MBS.R")
-				       NULL })
-		clusterExport(cl, "dataMatrix", environment())
-		clusterExport(cl, "classes", environment())
-		clusterExport(cl, "reps", environment())
-		clusterExport(cl, "showProgress", environment())
-		clusterExport(cl, "stopP", environment())
-		mbsRes <- clusterEvalQ(cl, MBS(dataMatrix, classes, reps = reps, showProgress = showProgress, stopP = stopP))
-	  	stopCluster(cl)
-		returnable <- mbsRes[1]
+			       library(MASS)
+			       library(Rcpp)
+			       library(RcppArmadillo)
+			       source("Classes.R")
+			       source("AllGenerics.R")
+			       source("methods-MBS.R")
+			       NULL })
+		clusterExport(cl, "mbs", environment())
+		mbsRes <- clusterEvalQ(cl, mbsRun(mbs, FALSE))
+		stopCluster(cl)
+		mbs@iterationResults <- mbsRes[[1]]@iterationResults
+		mbs@usedVars <- mbsRes[[1]]@usedVars
 		for(i in 2:length(mbsRes)){
-			returnable$iterationResults <- rbind(returnable$iterationResults, mbsRes[i])
+			mbs@iterationResults <- rbind(mbs@iterationResults, mbsRes[[i]]@iterationResults)
+			mbs@usedVars <- unique(c(mbs@usedVars, mbsRes[[i]]@usedVars))
 		}
-		returnable$avgT2 <- mean(returnable$iterationResults$T2)
-	 	if(returnable$assessOutOfBag == TRUE){
-			tmpC <- unique(returnable@classes)
-	   		accCalc <- rowSums(returnable$iterationResults[, 3:(2+length(tmpC))]) / rowSums(returnable$iterationResults[, (3+length(tmpC)):(((3+length(tmpC)) - 1)+length(tmpC))])
-	   		returnable$avgAccuracy <- mean(accCalc)
-	   	}
-
-		return(returnable)
+		mbs@avgT2 <- mean(mbs@iterationResults$T2)
+		if(mbs@assessOutOfBag == TRUE){
+			tmpC <- unique(mbs@classes)
+			accCalc <- rowSums(mbs@iterationResults[, 3:(2+length(tmpC))]) / rowSums(mbs@iterationResults[, (3+length(tmpC)):(((3+length(tmpC)) - 1)+length(tmpC))])
+			mbs@avgAccuracy <- mean(accCalc)
+		}
+		return(mbs)
 })
 
