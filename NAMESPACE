@@ -1,0 +1,20 @@
+useDynLib(MBS)
+import(MASS)
+import(psych)
+import(methods)
+import(parallel)
+import(RcppArmadillo)
+importFrom(Rcpp, evalCpp)
+exportPattern("^[[:alpha:]]+")
+exportMethods(
+    "getMBSIterationResults",
+    "getMBSMetricResults",
+    "MBS",
+    "mbsHybridFeatureSelection",
+    "mbsObtainBestInitial",
+    "MBSparallel",
+    "mbsRun" 
+)
+exportClasses(
+    "MBS" 
+)
