@@ -1,11 +1,11 @@
 Package: MBS
 Type: Package
-Title: What the package does (short line)
+Title: Modified Bagging Schema & Feature Selection 
 Version: 1.0
 Date: 2014-07-29
-Author: Who wrote it
-Maintainer: Who to complain to <yourfault@somewhere.net>
-Description: More about what it does (maybe more than one line)
+Author: Darius Dziuda, Jyota Snyder
+Maintainer: Jyota Snyder <jyotas@my.ccsu.edu>
+Description: This package implements the modified bagging schema and stepwise hybrid feature selection as defined in Darius Dziuda's 2010 book "Data Mining for Genomics & Proteomics." The approach was designed for feature selection and biomarker discovery in gene expression datasets having a large number of variables. Ensemble based classification estimates are calculated based on LDA models trained on in-bag data and tested on out-of-bag data for a chosen number of experiments.
 License: What license is it under?
 Depends: methods, MASS, psych, parallel
 Imports: Rcpp (>= 0.11.2), RcppArmadillo (>= 0.4.300.8.0)

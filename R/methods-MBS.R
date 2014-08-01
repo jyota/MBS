@@ -1,13 +1,13 @@
-setMethod("getMBSIterationResults", signature(object = "MBS"),
+setMethod("summary", signature(object = "MBS"),
 	  function(object){
 		object@iterationResults
 	  }
 )
 
-setMethod("getMBSMetricResults", signature(object = "MBS"),
-	  function(object){
-		  list(avgAccuracy = object@avgAccuracy, avgSensitivity = object@avgSensitivity, avgSpecificity = object@avgSpecificity, avgT2 = object@avgT2)
-	  }
+setMethod("show", signature(object = "MBS"),
+	 function(object){
+	 	cat("Accuracy: ", object@avgAccuracy, "\n")	
+	 }
 )
 
 setMethod("mbsObtainBestInitial", signature(object = "MBS", selectedRows = "numeric"),
@@ -112,7 +112,7 @@ setMethod("mbsRun", signature(object = "MBS", showProgress = "logical"),
 		  		  inBagZ <- sample(classFrame[classFrame$class == z, ]$id_seq, size = round(nrow(classFrame[classFrame$class == z, ])*object@proportionInBag, 0), replace = FALSE)
 		      		  classFrame[inBagZ, ]$selected <- TRUE
 		 	 }
-	         	tmpSelected = mbsHybridFeatureSelection(object = object, selectedRows = classFrame[classFrame$selected == TRUE, ]$id_seq) 
+	         	tmpRes <- capture.output(tmpSelected <- mbsHybridFeatureSelection(object = object, selectedRows = classFrame[classFrame$selected == TRUE, ]$id_seq))
 	          	if(length(tmpSelected)>1){
 		      		fitDf <- data.frame(object@dataMatrix[classFrame[classFrame$selected == TRUE, ]$id_seq, tmpSelected], classes = classFrame[classFrame$selected == TRUE, ]$class, check.names = FALSE)
 	          	} else {
@@ -137,7 +137,7 @@ setMethod("mbsRun", signature(object = "MBS", showProgress = "logical"),
 		         returnMatrix[j, (2 + length(tmpC)*2 + 1):ncol(returnMatrix)] <- colnames(object@dataMatrix)[tmpSelected]
 		    }else{
 		       #Not assessing out of bag importance, so just select variables and calculate T2 against whole data matrix.
-	               tmpSelected = mbsHybridFeatureSelection(object = object, selectedRows = seq_len(nrow(object@dataMatrix))) 
+	               tmpRes <- capture.output(tmpSelected <- mbsHybridFeatureSelection(object = object, selectedRows = seq_len(nrow(object@dataMatrix)))) 
     		       returnMatrix[j, ]$Index <- j
 	               returnMatrix[j, ]$T2 <- mbsMvarR(object@dataMatrix[, tmpSelected], object@classes)
 	               returnMatrix[j, 3:ncol(returnMatrix)] <- colnames(object@dataMatrix)[tmpSelected]

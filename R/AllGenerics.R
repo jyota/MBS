@@ -1,7 +1,3 @@
-setGeneric("getMBSIterationResults", function(object) standardGeneric("getMBSIterationResults"))
-
-setGeneric("getMBSMetricResults", function(object) standardGeneric("getMBSMetricResults"))
-
 setGeneric("mbsObtainBestInitial", function(object, selectedRows) standardGeneric("mbsObtainBestInitial"))
 
 setGeneric("mbsHybridFeatureSelection", function(object, selectedRows) standardGeneric("mbsHybridFeatureSelection"))

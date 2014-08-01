@@ -7,8 +7,8 @@ import(RcppArmadillo)
 importFrom(Rcpp, evalCpp)
 exportPattern("^[[:alpha:]]+")
 exportMethods(
-    "getMBSIterationResults",
-    "getMBSMetricResults",
+    "summary",
+    "show",
     "MBS",
     "mbsHybridFeatureSelection",
     "mbsObtainBestInitial",
