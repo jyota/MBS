@@ -1,12 +1,30 @@
 setMethod("summary", signature(object = "MBS"),
-	  function(object){
-		object@iterationResults
+	  function(object, variableUsedAccuracy = 1.0, numberOfAccurateVars = 10){
+		if(object@assessOutOfBag == TRUE){
+			tmpC <- unique(object@classes)
+	   		accCalc <- rowSums(object@iterationResults[, 3:(2+length(tmpC))]) / rowSums(object@iterationResults[, (3+length(tmpC)):(((3+length(tmpC)) - 1)+length(tmpC))])
+	   		perfectVars <- object@iterationResults[accCalc >= variableUsedAccuracy, which(grepl("V", colnames(object@iterationResults)))]
+			showVars <- table(unlist(perfectVars))
+			showVars <- showVars[order(showVars, decreasing = TRUE)]
+			cat("Modified Bagging Schema ensemble summary\n",
+		    		"Iterations: ", object@reps, "\n",
+		    		"Average T2 statistic: ", object@avgT2, "\n",
+		    		"Average accuracy: ", object@avgAccuracy, "\n",
+		    		"Table of top ", numberOfAccurateVars, " used variables selected into classifiers with ", variableUsedAccuracy, " accuracy: \n") 
+		    		print(showVars[1:numberOfAccurateVars])
+		} else {
+			cat("Modified Bagging Schema ensemble summary\n",
+		    		"Iterations: ", object@reps, "\n",
+		    		"Average T2 statistic: ", object@avgT2, "\n")
+
+		}
 	  }
 )
 
 setMethod("show", signature(object = "MBS"),
 	 function(object){
-	 	cat("Accuracy: ", object@avgAccuracy, "\n")	
+		cat("Results of Modified Bagging Schema iterations:\n")
+	 	object@iterationResults	
 	 }
 )
 
