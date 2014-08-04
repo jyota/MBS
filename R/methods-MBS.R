@@ -52,8 +52,8 @@ setMethod("mbsObtainBestInitial", signature(object = "MBS", selectedRows = "nume
 
 setMethod("mbsHybridFeatureSelection", signature(object = "MBS", selectedRows = "numeric"),
 	 function(object, selectedRows){
-     	  if(is.null(object@stopP) | is.null(object@stopT2)){
-    		stop("Must enter both stop criterion.\n")
+     	  if(is.null(object@stopP) | is.null(object@stopT2) | is.null(selectedRows)){
+    		stop("Must enter both stop criterion and selected rows.\n")
     	  }
 	  pool = seq_len(NCOL(object@dataMatrix))
   	  currentSet = NULL
@@ -61,8 +61,10 @@ setMethod("mbsHybridFeatureSelection", signature(object = "MBS", selectedRows = 
   	  markerSize = 0
   	  currentT2  = 0.0
   	  i          = 1
+	  minLossStep = NA
+	  maxGainStep = NA
   	  while(markerSize < object@stopP && currentT2 < object@stopT2 && (markerSize <= (length(selectedRows) - length(unique(object@classes)) - 2) | (length(selectedRows) - length(unique(object@classes)) - 2) == 0) && markerSize < ncol(object@dataMatrix)){
-    	  maxGainStep = 0.0
+	  maxGainStep = 0.0
     	  markerSize = markerSize + 1
     	  if(markerSize == 1){
       		init = mbsObtainBestInitial(object = object, selectedRows = selectedRows)
@@ -100,7 +102,18 @@ setMethod("mbsHybridFeatureSelection", signature(object = "MBS", selectedRows = 
 	      }
 	  }
 	  i = i + 1
-  	}
+	  if(is.na(currentT2)){
+	  	  # Something occurred where currentT2 became NA, so restart prcoedure.
+		  pool = seq_len(NCOL(object@dataMatrix))
+  		  currentSet = NULL
+  		  poolSize   = length(pool)
+  		  markerSize = 0
+  		  currentT2  = 0.0
+  		  i          = 1
+		  minLossStep = NA
+		  maxGainStep = NA
+	  }
+	  }
 
 	return(currentSet)
 })
@@ -131,7 +144,7 @@ setMethod("mbsRun", signature(object = "MBS", showProgress = "logical"),
 		      		  classFrame[inBagZ, ]$selected <- TRUE
 		 	 }
 	         	tmpRes <- capture.output(tmpSelected <- mbsHybridFeatureSelection(object = object, selectedRows = classFrame[classFrame$selected == TRUE, ]$id_seq))
-	          	if(length(tmpSelected)>1){
+  			if(length(tmpSelected)>1){
 		      		fitDf <- data.frame(object@dataMatrix[classFrame[classFrame$selected == TRUE, ]$id_seq, tmpSelected], classes = classFrame[classFrame$selected == TRUE, ]$class, check.names = FALSE)
 	          	} else {
 				fitDf <- data.frame(variable=object@dataMatrix[classFrame[classFrame$selected == TRUE, ]$id_seq, tmpSelected], classes = classFrame[classFrame$selected == TRUE, ]$class, check.names = FALSE)
