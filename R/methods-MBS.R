@@ -102,17 +102,6 @@ setMethod("mbsHybridFeatureSelection", signature(object = "MBS", selectedRows = 
 	      }
 	  }
 	  i = i + 1
-	  if(is.na(currentT2)){
-	  	  # Something occurred where currentT2 became NA, so restart prcoedure.
-		  pool = seq_len(NCOL(object@dataMatrix))
-  		  currentSet = NULL
-  		  poolSize   = length(pool)
-  		  markerSize = 0
-  		  currentT2  = 0.0
-  		  i          = 1
-		  minLossStep = NA
-		  maxGainStep = NA
-	  }
 	  }
 
 	return(currentSet)
@@ -144,7 +133,7 @@ setMethod("mbsRun", signature(object = "MBS", showProgress = "logical"),
 		      		  classFrame[inBagZ, ]$selected <- TRUE
 		 	 }
 	         	tmpRes <- capture.output(tmpSelected <- mbsHybridFeatureSelection(object = object, selectedRows = classFrame[classFrame$selected == TRUE, ]$id_seq))
-  			if(length(tmpSelected)>1){
+  			  if(length(tmpSelected)>1){
 		      		fitDf <- data.frame(object@dataMatrix[classFrame[classFrame$selected == TRUE, ]$id_seq, tmpSelected], classes = classFrame[classFrame$selected == TRUE, ]$class, check.names = FALSE)
 	          	} else {
 				fitDf <- data.frame(variable=object@dataMatrix[classFrame[classFrame$selected == TRUE, ]$id_seq, tmpSelected], classes = classFrame[classFrame$selected == TRUE, ]$class, check.names = FALSE)
@@ -196,6 +185,11 @@ setMethod("mbsRun", signature(object = "MBS", showProgress = "logical"),
 setMethod("MBS", signature(dataMatrix = "matrix", classes = "numeric"), 
    function(dataMatrix, classes, stopP = NULL, stopT2 = NULL, reps = NULL, initialSelection = "random", priors = NULL, proportionInBag = 0.632, searchWithReplacement = TRUE, assessOutOfBag = TRUE, showProgress = TRUE)
 	{
+	tmpDataMatrix = dataMatrix[, which(colSums(dataMatrix) != 0)]
+	if(ncol(tmpDataMatrix) != ncol(dataMatrix)){
+		warning("Removing columns with only zero values...\n")
+		dataMatrix = tmpDataMatrix
+	}
 	classes = as.numeric(classes)
 	if(is.null(stopP)){
 	  warning("No stopP value assigned, setting to maximum number of data matrix columns minus 1.\n")

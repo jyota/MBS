@@ -78,8 +78,8 @@ NumericVector mbsForwardSelection(NumericMatrix x, NumericVector classes, Numeri
 			for(int j = 0; j < SelectedCols.n_elem; j++){
 				combCols(j) = SelectedCols(j);
 			}
-			deltaT2 = mbsMvar(X.submat(arma::conv_to< arma::uvec >::from(SelectedRows), arma::conv_to< arma::uvec >::from(combCols)), Classes(arma::conv_to< arma::uvec >::from(SelectedRows))) - currentT2;
-
+			double res = mbsMvar(X.submat(arma::conv_to< arma::uvec >::from(SelectedRows), arma::conv_to< arma::uvec >::from(combCols)), Classes(arma::conv_to< arma::uvec >::from(SelectedRows)));
+			deltaT2 = res - currentT2;
 			if(deltaT2 >= maxGain & deltaT2 > 0.0){
 				maxGain = deltaT2;
 				selectedVar = i;
@@ -124,7 +124,8 @@ NumericVector mbsBackwardOptimize(NumericMatrix x, NumericVector classes, Numeri
 					tmpInc++;
 				}
 			}
-			deltaT2 = currentT2 - mbsMvar(X.submat(arma::conv_to< arma::uvec >::from(SelectedRows), reducedCols), Classes(arma::conv_to< arma::uvec >::from(SelectedRows)));
+			double res = mbsMvar(X.submat(arma::conv_to< arma::uvec >::from(SelectedRows), reducedCols), Classes(arma::conv_to< arma::uvec >::from(SelectedRows)));
+			deltaT2 = currentT2 - res;
 			if(deltaT2 <= minLoss){
 				dropVar = SelectedCols(i);
 				minLoss = deltaT2;
