@@ -35,17 +35,24 @@ setMethod("mbsObtainBestInitial", signature(object = "MBS", selectedRows = "nume
 	maxVar    = NULL
 	if(object@initialSelection == "Hotelling"){
 		for(i in NCOL(object@dataMatrix)){
-			currentTest = mbsMvarR(as.matrix(object@dataMatrix[selectedRows, ]), object@classes[selectedRows])
-			if(currentTest > maxGain){			
-				maxGain   = currentTest
-				maxVar    = i
+			if(length(unique(object@dataMatrix[selectedRows, i])) > 1){
+				currentTest = mbsMvarR(as.matrix(object@dataMatrix[selectedRows, i]), object@classes[selectedRows])
+				if(currentTest > maxGain){			
+					maxGain   = currentTest
+					maxVar    = i
+				}
 			}
 		}
 	}
 	if(object@initialSelection == "random"){
 		# Just pick a random column (returns Hotelling-Lawley trace stat)
-		maxVar = sample(seq_len(NCOL(object@dataMatrix)),1)
-		maxGain = mbsMvarR(as.matrix(object@dataMatrix[selectedRows, maxVar]), object@classes[selectedRows])
+		while(1 == 1){
+		      maxVar <- sample(seq_len(NCOL(object@dataMatrix)),1)
+		      if(length(unique(object@dataMatrix[selectedRows, maxVar])) > 1){
+			maxGain <- mbsMvarR(as.matrix(object@dataMatrix[selectedRows, maxVar]), object@classes[selectedRows])
+			break
+		      }
+		}
 	}
 	return(list(maxVar = maxVar, maxGain = maxGain))
 })
@@ -185,11 +192,6 @@ setMethod("mbsRun", signature(object = "MBS", showProgress = "logical"),
 setMethod("MBS", signature(dataMatrix = "matrix", classes = "numeric"), 
    function(dataMatrix, classes, stopP = NULL, stopT2 = NULL, reps = NULL, initialSelection = "random", priors = NULL, proportionInBag = 0.632, searchWithReplacement = TRUE, assessOutOfBag = TRUE, showProgress = TRUE)
 	{
-	tmpDataMatrix = dataMatrix[, which(colSums(dataMatrix) != 0)]
-	if(ncol(tmpDataMatrix) != ncol(dataMatrix)){
-		warning("Removing columns with only zero values...\n")
-		dataMatrix = tmpDataMatrix
-	}
 	classes = as.numeric(classes)
 	if(is.null(stopP)){
 	  warning("No stopP value assigned, setting to maximum number of data matrix columns minus 1.\n")
