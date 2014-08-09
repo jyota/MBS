@@ -1,43 +1,16 @@
 \name{MBS-package}
 \alias{MBS-package}
-\alias{MBS}
 \docType{package}
 \title{
-What the package does (short line)
-~~ package title ~~
+Modified bagging schema R implementation
 }
 \description{
-More about what it does (maybe more than one line)
-~~ A concise (1-5 lines) description of the package ~~
-}
-\details{
-\tabular{ll}{
-Package: \tab MBS\cr
-Type: \tab Package\cr
-Version: \tab 1.0\cr
-Date: \tab 2014-07-29\cr
-License: \tab What license is it under?\cr
-Depends: \tab methods\cr
-}
-~~ An overview of how to use the package, including the most important ~~
-~~ functions ~~
+MBS is a package that provides an R implementation of the modified bagging schema defined by Darius Dziuda (see references). In that definition, the context of the use of the modified bagging schema is for biomarker discovery in gene expression data (has been used with microarray and RNA-seq gene expression data). However, the approach could be useful for selection of a parsimonious set of variables separating classes in other scenarios with datasets that have up to thousands of variables.
 }
 \author{
-Who wrote it
-
-Maintainer: Who to complain to <yourfault@somewhere.net>
-~~ The author and/or maintainer of the package ~~
+Jyota Snyder <jyotas@my.ccsu.edu>. Modified bagging schema implemented was defined by Darius Dziuda.
 }
 \references{
-~~ Literature or other references for background information ~~
+Dziuda DM (2010). \emph{Data mining for genomics and proteomics: Analysis of gene and protein expression data}. Hoboken, NJ: John Wiley & Sons, Inc.
 }
-~~ Optionally other standard keywords, one per line, from file KEYWORDS in ~~
-~~ the R documentation directory ~~
 \keyword{ package }
-\seealso{
-~~ Optional links to other man pages, e.g. ~~
-~~ \code{\link[<pkg>:<pkg>-package]{<pkg>}} ~~
-}
-\examples{
-~~ simple examples of the most important functions ~~
-}
