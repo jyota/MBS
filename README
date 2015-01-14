@@ -2,5 +2,5 @@ Concepts, approach, hybrid feature selection, and modified bagging schema are de
 R code by Jyota Snyder (jyotas at my dot ccsu dot edu).
 
 Eventually this package will be more documented in the man files for the package.
-
+This is basically a package version of the FeatureSelection repo I have, but I also optimized this with Rcpp and can do parallel bootstrapping.
 
