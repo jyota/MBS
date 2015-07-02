@@ -69,11 +69,9 @@ NumericVector mbsForwardSelection(NumericMatrix x, NumericVector classes, Numeri
 	double currentT2 = mbsMvar(X.submat(arma::conv_to< arma::uvec >::from(SelectedRows), arma::conv_to< arma::uvec >::from(SelectedCols)), Classes(arma::conv_to< arma::uvec >::from(SelectedRows)));
 	for(int i = 0; i < X.n_cols; i++){
 		arma::uvec foundCol = arma::find(SelectedCols == i);
-		// Check if this column has only a constant value, if so skip it
-		arma::vec checkColumn = X.submat(arma::conv_to< arma::uvec >::from(SelectedRows), arma::conv_to< arma::uvec >::from(foundCol));
-		arma::vec uniqueCheck = unique(checkColumn);
-		if(foundCol.n_elem > 0 | uniqueCheck.n_elem <= 1){
-			// Do nothing if already selected column selected or if only 1 unique value!	
+		// The below may error out if column has single unique value	
+		if(foundCol.n_elem > 0){
+			// Do nothing if already selected column selected	
 		} else {
 			// Otherwise, combine this column with the others and get T2 value.
 			arma::vec combCols = arma::vec(SelectedCols.n_elem + 1);

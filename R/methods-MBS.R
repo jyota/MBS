@@ -212,6 +212,8 @@ setMethod("MBS", signature(dataMatrix = "matrix", classes = "numeric"),
 	if(length(priors) != length(unique(classes))){
 	  stop("Ensure length(priors) == length(unique(classes)).\n")
 	}
+	uniqueLength <- apply(dataMatrix, 2, function(x) length(unique(x)))
+	dataMatrix <- subset(dataMatrix, select = uniqueLength > 1)
 	if(stopP > ncol(dataMatrix)){
 	  stop("stopP > ncol(dataMatrix)! Aborting.\n")
 	}
