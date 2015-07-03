@@ -1,3 +1,8 @@
+#' summary of MBS object
+#'
+#' @name summary
+#' @docType methods
+#' @rdname summary
 setMethod("summary", signature(object = "MBS"),
 	  function(object, variableUsedAccuracy = 1.0, numberOfAccurateVars = 10){
 		if(object@assessOutOfBag == TRUE){
@@ -21,6 +26,11 @@ setMethod("summary", signature(object = "MBS"),
 	  }
 )
 
+#' show iteration results for MBS object
+#'
+#' @name show
+#' @docType methods
+#' @rdname show
 setMethod("show", signature(object = "MBS"),
 	 function(object){
 		cat("Results of Modified Bagging Schema iterations:\n")
@@ -28,6 +38,11 @@ setMethod("show", signature(object = "MBS"),
 	 }
 )
 
+#' Obtain best initial feature for MBS iteration
+#'
+#' @name mbsObtainBestInitial
+#' @docType methods
+#' @rdname mbsObtainBestInitial
 setMethod("mbsObtainBestInitial", signature(object = "MBS", selectedRows = "numeric"),
 	function(object, selectedRows){
 	# Obtain best initial variable for feature selection process.
@@ -57,6 +72,11 @@ setMethod("mbsObtainBestInitial", signature(object = "MBS", selectedRows = "nume
 	return(list(maxVar = maxVar, maxGain = maxGain))
 })
 
+#' Perform hybrid feature selection with MBS object
+#'
+#' @name mbsHybridFeatureSelection
+#' @docType methods
+#' @rdname mbsHybridFeatureSelection
 setMethod("mbsHybridFeatureSelection", signature(object = "MBS", selectedRows = "numeric"),
 	 function(object, selectedRows){
      	  if(is.null(object@stopP) | is.null(object@stopT2) | is.null(selectedRows)){
@@ -114,6 +134,11 @@ setMethod("mbsHybridFeatureSelection", signature(object = "MBS", selectedRows = 
 	return(currentSet)
 })
 
+#' Run Modified Bagging Schema iterations for MBS object
+#'
+#' @name mbsRun
+#' @docType methods
+#' @rdname mbsRun
 setMethod("mbsRun", signature(object = "MBS", showProgress = "logical"),
 	  function(object, showProgress){
 		# Implements modified bagging schema to obtain estimates related to feature selection
@@ -189,6 +214,11 @@ setMethod("mbsRun", signature(object = "MBS", showProgress = "logical"),
 	   return(object)
 })
 
+#' Set up Modified Bagging Schema experiment with chosen settings 
+#'
+#' @name MBS
+#' @docType methods
+#' @rdname MBS
 setMethod("MBS", signature(dataMatrix = "matrix", classes = "numeric"), 
    function(dataMatrix, classes, stopP = NULL, stopT2 = NULL, reps = NULL, initialSelection = "random", priors = NULL, proportionInBag = 0.632, searchWithReplacement = TRUE, assessOutOfBag = TRUE, showProgress = TRUE)
 	{
@@ -224,12 +254,21 @@ setMethod("MBS", signature(dataMatrix = "matrix", classes = "numeric"),
 	return(mbsRun(mbs, showProgress))
 })
 
+#' Set up Modified Bagging Schema experiment with chosen settings (for data.frame)
+#'
+#' @name MBS
+#' @docType methods
+#' @rdname MBS
 setMethod("MBS", signature(dataMatrix = "data.frame", classes = "numeric"),
 	  function(dataMatrix, classes, ...){ 
 		  MBS(dataMatrix = data.matrix(dataMatrix), classes = classes, ...) 
 })
 
-# Work in progress below for multicore bagging procedure (not yet functional)
+#' Run a multi-core parallelized Modified Bagging Schema experiment 
+#'
+#' @name MBSparallel
+#' @docType methods
+#' @rdname MBSparallel
 setMethod("MBSparallel", signature(dataMatrix = "matrix", classes = "numeric", cores = "numeric"),
 	  function(dataMatrix, classes, cores = detectCores(), stopP = NULL, stopT2 = NULL, reps = NULL, initialSelection = "random", priors = NULL, proportionInBag = 0.632, searchWithReplacement = TRUE, assessOutOfBag = TRUE, showProgress = TRUE){
 		if(searchWithReplacement == FALSE){
